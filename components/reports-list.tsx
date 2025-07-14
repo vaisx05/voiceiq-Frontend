@@ -62,6 +62,7 @@ import { useRouter } from "next/navigation";
 import { DateTime } from "luxon";
 import { DateRangePicker } from "./date-range-picker";
 import { BASE_URL } from "@/lib/constants";
+import { jwtDecode } from "jwt-decode";
 
 function convertUTCToLocalLuxon(utcTimeString: string) {
   const userTimeZone = DateTime.local().zoneName;
@@ -199,6 +200,21 @@ export function ReportsList() {
     const match = document.cookie.match(new RegExp('(^| )token=([^;]+)'));
     return match ? match[2] : null;
   }
+
+  // Get organisation_id from token
+  let organisationId = "";
+  const token = getTokenFromCookies();
+  if (token) {
+    try {
+      const decoded: any = jwtDecode(token);
+      organisationId = decoded.organisation_id;
+    } catch (e) {
+      organisationId = "";
+    }
+  }
+
+  // Create a variable for lemonpeak check
+  const isLemonpeak = organisationId === "b222d2bf-162d-4307-9187-9c84b5920f3d";
 
   // added pagination so that we can load reports in chunks
   const fetchReports = async (page = 1) => {
@@ -743,61 +759,80 @@ export function ReportsList() {
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-gray-50 dark:bg-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                      {/* Conditional columns */}
                       <TableHead className="font-semibold min-w-[200px] p-2">
                         <ColumnHeader
                           column="call_date"
                           icon={<Phone className="h-4 w-4" />}
-                          label="Call Date"
+                          label="Date"
                           columnFilters={columnFilters}
                           columnSorts={columnSorts}
                           handleColumnFilterChange={handleColumnFilterChange}
                           handleColumnSort={handleColumnSort}
                         />
                       </TableHead>
-                      <TableHead className="font-semibold min-w-[150px]">
-                        <ColumnHeader
-                          column="call_type"
-                          icon={<ArrowRightLeft className="h-4 w-4" />}
-                          label="In/External"
-                          columnFilters={columnFilters}
-                          columnSorts={columnSorts}
-                          handleColumnFilterChange={handleColumnFilterChange}
-                          handleColumnSort={handleColumnSort}
-                        />
-                      </TableHead>
-                      <TableHead className="font-semibold min-w-[180px]">
-                        <ColumnHeader
-                          column="caller_name"
-                          icon={<UserRound className="h-4 w-4" />}
-                          label="Caller Name"
-                          columnFilters={columnFilters}
-                          columnSorts={columnSorts}
-                          handleColumnFilterChange={handleColumnFilterChange}
-                          handleColumnSort={handleColumnSort}
-                        />
-                      </TableHead>
-                      <TableHead className="font-semibold min-w-[150px]">
-                        <ColumnHeader
-                          column="toll_free_did"
-                          icon={<Headset className="h-4 w-4" />}
-                          label="Toll Free/DID"
-                          columnFilters={columnFilters}
-                          columnSorts={columnSorts}
-                          handleColumnFilterChange={handleColumnFilterChange}
-                          handleColumnSort={handleColumnSort}
-                        />
-                      </TableHead>
-                      <TableHead className="font-semibold min-w-[170px]">
-                        <ColumnHeader
-                          column="customer_number"
-                          icon={<Phone className="h-4 w-4" />}
-                          label="Customer Number"
-                          columnFilters={columnFilters}
-                          columnSorts={columnSorts}
-                          handleColumnFilterChange={handleColumnFilterChange}
-                          handleColumnSort={handleColumnSort}
-                        />
-                      </TableHead>
+                      {isLemonpeak ? (
+                        <>
+                          <TableHead className="font-semibold min-w-[150px]">
+                            <ColumnHeader
+                              column="call_type"
+                              icon={<ArrowRightLeft className="h-4 w-4" />}
+                              label="Call Type"
+                              columnFilters={columnFilters}
+                              columnSorts={columnSorts}
+                              handleColumnFilterChange={handleColumnFilterChange}
+                              handleColumnSort={handleColumnSort}
+                            />
+                          </TableHead>
+                          <TableHead className="font-semibold min-w-[180px]">
+                            <ColumnHeader
+                              column="caller_name"
+                              icon={<UserRound className="h-4 w-4" />}
+                              label="Caller Name"
+                              columnFilters={columnFilters}
+                              columnSorts={columnSorts}
+                              handleColumnFilterChange={handleColumnFilterChange}
+                              handleColumnSort={handleColumnSort}
+                            />
+                          </TableHead>
+                          <TableHead className="font-semibold min-w-[150px]">
+                            <ColumnHeader
+                              column="toll_free_did"
+                              icon={<Headset className="h-4 w-4" />}
+                              label="Toll Free/DID"
+                              columnFilters={columnFilters}
+                              columnSorts={columnSorts}
+                              handleColumnFilterChange={handleColumnFilterChange}
+                              handleColumnSort={handleColumnSort}
+                            />
+                          </TableHead>
+                          <TableHead className="font-semibold min-w-[170px]">
+                            <ColumnHeader
+                              column="customer_number"
+                              icon={<Phone className="h-4 w-4" />}
+                              label="Customer Number"
+                              columnFilters={columnFilters}
+                              columnSorts={columnSorts}
+                              handleColumnFilterChange={handleColumnFilterChange}
+                              handleColumnSort={handleColumnSort}
+                            />
+                          </TableHead>
+                        </>
+                      ) : (
+                        <>
+                          <TableHead className="font-semibold min-w-[180px]">
+                            <ColumnHeader
+                              column="filename"
+                              icon={<UserRound className="h-4 w-4" />}
+                              label="File Name"
+                              columnFilters={columnFilters}
+                              columnSorts={columnSorts}
+                              handleColumnFilterChange={handleColumnFilterChange}
+                              handleColumnSort={handleColumnSort}
+                            />
+                          </TableHead>
+                        </>
+                      )}
                       <TableHead className="font-semibold min-w-[120px]">
                         <span>Status</span>
                       </TableHead>
@@ -878,61 +913,69 @@ export function ReportsList() {
                             <TableCell className="text-gray-600 dark:text-gray-300">
                               {report.call_date || "-"}
                             </TableCell>
-                            <TableCell className="text-gray-600 dark:text-gray-300">
-                              <div className="flex items-center gap-2">
-                                {report.call_type === "in" ? (
-                                  <>
-                                    <PhoneIncoming className="w-4 h-4 text-green-500" />
-                                    In
-                                  </>
-                                ) : report.call_type === "external" ? (
-                                  <>
-                                    <PhoneOutgoing className="w-4 h-4 text-red-500" />
-                                    External
-                                  </>
-                                ) : (
-                                  report.call_type
-                                )}
-                              </div>
-                            </TableCell>
-                            {/* <TableCell>
-                              <Button
-                                variant="ghost"
-                                className="px-0 font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors duration-200 text-[1.1rem]"
-                                onClick={() => {
-                                  setSelectedReport(report)
-                                  router.push(`/reports/${report.id}`)
-                                }}
-                              >
-                                {report.caller_name === "null" ? "-" : report.caller_name}
-                              </Button>
-                            </TableCell> */}
-                            <TableCell>
-                              {report.caller_name &&
-                                report.caller_name !== "null" ? (
-                                <Button
-                                  variant="ghost"
-                                  className="px-0 font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors duration-200 text-[1.1rem]"
-                                  onClick={() => {
-                                    setSelectedReport(report);
-                                    router.push(`/reports/${report.id}`);
-                                  }}
-                                >
-                                  {report.caller_name}
-                                </Button>
-                              ) : (
-                                <span>-</span>
-                              )}
-                            </TableCell>
-                            {/* <TableCell className="text-gray-600 dark:text-gray-300">
-                              {report.request_type?.charAt(0).toUpperCase() + report.request_type?.slice(1) || "-"}
-                            </TableCell> */}
-                            <TableCell className="text-gray-600 dark:text-gray-300">
-                              {report.toll_free_did || "-"}
-                            </TableCell>
-                            <TableCell className="text-gray-600 dark:text-gray-300">
-                              {report.customer_number || "-"}
-                            </TableCell>
+                            {isLemonpeak ? (
+                              <>
+                                <TableCell className="text-gray-600 dark:text-gray-300">
+                                  <div className="flex items-center gap-2">
+                                    {report.call_type === "in" ? (
+                                      <>
+                                        <PhoneIncoming className="w-4 h-4 text-green-500" />
+                                        In
+                                      </>
+                                    ) : report.call_type === "external" ? (
+                                      <>
+                                        <PhoneOutgoing className="w-4 h-4 text-red-500" />
+                                        External
+                                      </>
+                                    ) : (
+                                      report.call_type
+                                    )}
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  {report.caller_name &&
+                                  report.caller_name !== "null" ? (
+                                    <Button
+                                      variant="ghost"
+                                      className="px-0 font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors duration-200 text-[1.1rem]"
+                                      onClick={() => {
+                                        setSelectedReport(report);
+                                        router.push(`/reports/${report.id}`);
+                                      }}
+                                    >
+                                      {report.caller_name}
+                                    </Button>
+                                  ) : (
+                                    <span>-</span>
+                                  )}
+                                </TableCell>
+                                <TableCell className="text-gray-600 dark:text-gray-300">
+                                  {report.toll_free_did || "-"}
+                                </TableCell>
+                                <TableCell className="text-gray-600 dark:text-gray-300">
+                                  {report.customer_number || "-"}
+                                </TableCell>
+                              </>
+                            ) : (
+                              <>
+                                <TableCell>
+                                  {report.filename && report.filename !== "null" ? (
+                                    <Button
+                                      variant="ghost"
+                                      className="px-0 font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors duration-200 text-[1.1rem]"
+                                      onClick={() => {
+                                        setSelectedReport(report);
+                                        router.push(`/reports/${report.id}`);
+                                      }}
+                                    >
+                                      {report.filename.replace(/\.(mp3|wav)$/i, "")}
+                                    </Button>
+                                  ) : (
+                                    <span>-</span>
+                                  )}
+                                </TableCell>
+                              </>
+                            )}
                             <TableCell>
                               {report.status === "processing" ? (
                                 <span className="px-2 py-1 rounded bg-yellow-100 text-yellow-800 text-xs">
@@ -944,23 +987,6 @@ export function ReportsList() {
                                 </span>
                               )}
                             </TableCell>
-
-                            {/* <TableCell>
-                              <span
-                                className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium transition-all duration-200 ${
-                                  sentimentColor === "green"
-                                    ? "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300"
-                                    : sentimentColor === "red"
-                                      ? "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300"
-                                      : sentimentColor === "blue"
-                                        ? "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300"
-                                        : "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300"
-                                }`}
-                              >
-                                {report.caller_sentiment?.charAt(0).toUpperCase() + report.caller_sentiment?.slice(1) ||
-                                  "Unknown"}
-                              </span>
-                            </TableCell> */}
                             <TableCell className="text-center">
                               <div className="flex justify-center gap-1 transition-opacity duration-200">
                                 <Button
