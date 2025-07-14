@@ -112,10 +112,10 @@ const ColumnHeader = ({
         />
       ) : (
         <Input
-          placeholder={`Filter ${label.toLowerCase()}...`}
+          placeholder={`Click Enter To Search`}
           value={columnFilters[column] || ""}
           onChange={(e) => handleColumnFilterChange(column, e.target.value)}
-          className="h-7 text-xs bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600"
+          className="h-7 text-xs bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 placeholder:text-xs"
         />
       ))}
   </div>
