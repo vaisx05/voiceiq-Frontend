@@ -45,6 +45,12 @@ export default function UploadPage() {
     processQueue();
   }, [fileQueue, isUploading, processQueue]);
 
+  // Helper to get token from cookies
+  function getTokenFromCookies() {
+    const match = document.cookie.match(new RegExp('(^| )token=([^;]+)'));
+    return match ? match[2] : null;
+  }
+
   // Actual upload to server function
   const uploadFileToServer = async (file: File) => {
     setIsUploading(true);
@@ -54,10 +60,10 @@ export default function UploadPage() {
     formData.append("file", file);
 
     try {
-      // Create an XMLHttpRequest to track upload progress
+      const token = getTokenFromCookies();
+
       const xhr = new XMLHttpRequest();
 
-      // Set up progress tracking
       xhr.upload.addEventListener("progress", (event) => {
         if (event.lengthComputable) {
           const percentComplete = (event.loaded / event.total) * 100;
@@ -65,7 +71,6 @@ export default function UploadPage() {
         }
       });
 
-      // Promise to handle the XHR
       const uploadPromise = new Promise<any>((resolve, reject) => {
         xhr.onload = function () {
           if (xhr.status >= 200 && xhr.status < 300) {
@@ -76,7 +81,7 @@ export default function UploadPage() {
               resolve({ message: "File uploaded successfully" });
             }
           } else {
-            reject(new Error(`HTTP ErrorS: ${xhr.status}`));
+            reject(new Error(`HTTP Error: ${xhr.status}`));
           }
         };
 
@@ -85,14 +90,17 @@ export default function UploadPage() {
         };
       });
 
-      // Set up and send the request
       xhr.open("POST", `${BASE_URL}/create_log`, true);
+
+      // Set the Authorization header with the token
+      if (token) {
+        xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+      }
+
       xhr.send(formData);
 
-      // Wait for the upload to complete
       const data = await uploadPromise;
 
-      // Handle successful upload
       toast({
         title: "Upload Successful",
         description: `"${file.name}" -  "The audio file has been processed successfully."`,
@@ -103,7 +111,6 @@ export default function UploadPage() {
       setUploadProgress(0);
     } catch (error) {
       setIsUploading(false);
-
       setCurrentFile(null);
       setUploadProgress(0);
     }
