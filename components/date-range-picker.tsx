@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar, ChevronLeft, ChevronRight, X } from "lucide-react"
@@ -12,10 +12,18 @@ interface DateRangePickerProps {
   onFromDateChange: (date: string) => void
   onToDateChange: (date: string) => void
   onClear: () => void
+  onClose?: () => void // <-- add this
 }
 
-export function DateRangePicker({ fromDate, toDate, onFromDateChange, onToDateChange, onClear }: DateRangePickerProps) {
-  const [isOpen, setIsOpen] = useState(false)
+export function DateRangePicker({
+  fromDate,
+  toDate,
+  onFromDateChange,
+  onToDateChange,
+  onClear,
+  onClose,
+}: DateRangePickerProps) {
+  const [isOpen, setIsOpen] = useState(true); // default open
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [selectingType, setSelectingType] = useState<"from" | "to">("from")
   const [mounted, setMounted] = useState(false)
@@ -24,6 +32,18 @@ export function DateRangePicker({ fromDate, toDate, onFromDateChange, onToDateCh
   useEffect(() => {
     setMounted(true)
   }, [])
+
+  // Close popover when both dates are set
+  // useEffect(() => {
+  //   if (fromDate && toDate) {
+  //     setIsOpen(false);
+  //   }
+  // }, [fromDate, toDate]);
+
+  // Call onClose when popover closes
+  // useEffect(() => {
+  //   if (!isOpen && onClose) onClose();
+  // }, [isOpen, onClose]);
 
   const formatDisplayDate = (dateString: string) => {
     if (!dateString || !mounted) return null
@@ -119,80 +139,178 @@ export function DateRangePicker({ fromDate, toDate, onFromDateChange, onToDateCh
 
   const weekDays = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"]
 
+  // Format for compact display
+  const compactLabel = fromDate && toDate
+    ? `${fromDate} ~ ${toDate}`
+    : fromDate
+      ? `${fromDate} ~`
+      : toDate
+        ? `~ ${toDate}`
+        : "Select date range";
+
   return (
+    // <Popover open={isOpen} onOpenChange={setIsOpen}>
+    //   <PopoverTrigger asChild>
+    //     <Button
+    //       variant="outline"
+    //       size="sm"
+    //       className="flex items-center gap-2 px-3 py-1 rounded-full text-xs h-8"
+    //     >
+    //       <Calendar className="h-4 w-4 text-blue-500" />
+    //       <span className={fromDate || toDate ? "text-black" : "text-black"}>
+    //         {compactLabel}
+    //       </span>
+    //       {(fromDate || toDate) && (
+    //         <X
+    //           className="h-3 w-3 ml-1 text-gray-400 hover:text-red-500 cursor-pointer"
+    //           onClick={e => {
+    //             e.stopPropagation();
+    //             onClear();
+    //           }}
+    //         />
+    //       )}
+    //     </Button>
+    //   </PopoverTrigger>
+
+    //   <PopoverContent className="w-auto p-0" align="start">
+    //     <div className="p-4">
+    //       <div className="flex items-center justify-between mb-4">
+    //         <div className="text-sm font-medium">
+    //           {selectingType === "from" ? "Select From Date" : "Select To Date"}
+    //         </div>
+    //         <Button variant="ghost" size="icon" onClick={() => setIsOpen(false)} className="h-6 w-6">
+    //           <X className="h-4 w-4" />
+    //         </Button>
+    //       </div>
+
+    //       <div className="flex gap-4">
+    //         {/* Current Month */}
+    //         <div className="space-y-2">
+    //           <div className="flex items-center justify-between">
+    //             <Button variant="ghost" size="icon" onClick={() => navigateMonth("prev")} className="h-6 w-6">
+    //               <ChevronLeft className="h-4 w-4" />
+    //             </Button>
+    //             <div className="font-semibold text-sm">
+    //               {currentMonth.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+    //             </div>
+    //             <div className="w-6" />
+    //           </div>
+
+    //           <div className="grid grid-cols-7 gap-1 text-center">
+    //             {weekDays.map((day) => (
+    //               <div key={day} className="text-xs font-medium text-gray-500 p-2">
+    //                 {day}
+    //               </div>
+    //             ))}
+    //             {currentMonthDays.map((date, index) => (
+    //               <div key={index} className="p-1">
+    //                 {date ? (
+    //                   <Button
+    //                     variant="ghost"
+    //                     size="sm"
+    //                     onClick={() => handleDateClick(date)}
+    //                     className={cn(
+    //                       "h-8 w-8 p-0 font-normal rounded-full",
+    //                       isDateSelected(date) && "bg-blue-500 text-white hover:bg-blue-600",
+    //                       isDateInRange(date) && "bg-blue-100 text-blue-900",
+    //                       date.toDateString() === new Date().toDateString() && "border border-blue-500",
+    //                     )}
+    //                   >
+    //                     {date.getDate()}
+    //                   </Button>
+    //                 ) : (
+    //                   <div className="h-8 w-8" />
+    //                 )}
+    //               </div>
+    //             ))}
+    //           </div>
+    //         </div>
+
+    //         {/* Next Month */}
+    //         <div className="space-y-2">
+    //           <div className="flex items-center justify-between">
+    //             <div className="w-6" />
+    //             <div className="font-semibold text-sm">
+    //               {nextMonth.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+    //             </div>
+    //             <Button variant="ghost" size="icon" onClick={() => navigateMonth("next")} className="h-6 w-6">
+    //               <ChevronRight className="h-4 w-4" />
+    //             </Button>
+    //           </div>
+
+    //           <div className="grid grid-cols-7 gap-1 text-center">
+    //             {weekDays.map((day) => (
+    //               <div key={day} className="text-xs font-medium text-gray-500 p-2">
+    //                 {day}
+    //               </div>
+    //             ))}
+    //             {nextMonthDays.map((date, index) => (
+    //               <div key={index} className="p-1">
+    //                 {date ? (
+    //                   <Button
+    //                     variant="ghost"
+    //                     size="sm"
+    //                     onClick={() => handleDateClick(date)}
+    //                     className={cn(
+    //                       "h-8 w-8 p-0 font-normal rounded-full",
+    //                       isDateSelected(date) && "bg-blue-500 text-white hover:bg-blue-600",
+    //                       isDateInRange(date) && "bg-blue-100 text-blue-900",
+    //                       date.toDateString() === new Date().toDateString() && "border border-blue-500",
+    //                     )}
+    //                   >
+    //                     {date.getDate()}
+    //                   </Button>
+    //                 ) : (
+    //                   <div className="h-8 w-8" />
+    //                 )}
+    //               </div>
+    //             ))}
+    //           </div>
+    //         </div>
+    //       </div>
+
+    //       <div className="flex justify-between items-center mt-4 pt-4 border-t">
+    //         <Button variant="outline" size="sm" onClick={onClear} className="text-xs">
+    //           Clear Dates
+    //         </Button>
+    //         <div className="text-xs text-gray-500">
+    //           {selectingType === "from" ? "Select from date first" : "Select to date"}
+    //         </div>
+    //       </div>
+    //     </div>
+    //   </PopoverContent>
+    // </Popover>
     <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger asChild>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            className={cn(
-              "flex-1 justify-start text-left font-normal h-auto p-3 rounded-xl",
-              !fromDate && "text-muted-foreground",
-            )}
-          >
-            <div className="flex items-center gap-2 w-full">
-              <Calendar className="h-4 w-4 text-blue-500" />
-              <div className="flex-1">
-                <div className="text-xs text-blue-500 font-medium">From Date</div>
-                {fromDateFormatted ? (
-                  <div>
-                    <div className="font-semibold text-lg">{fromDateFormatted.full}</div>
-                    <div className="text-xs text-gray-500">{fromDateFormatted.dayName}</div>
-                  </div>
-                ) : (
-                  <div className="text-sm">Select date</div>
-                )}
-              </div>
-            </div>
-          </Button>
-
-          <Button
-            variant="outline"
-            className={cn(
-              "flex-1 justify-start text-left font-normal h-auto p-3 rounded-xl",
-              !toDate && "text-muted-foreground",
-            )}
-          >
-            <div className="flex items-center gap-2 w-full">
-              <Calendar className="h-4 w-4 text-blue-500" />
-              <div className="flex-1">
-                <div className="text-xs text-blue-500 font-medium">To Date</div>
-                {toDateFormatted ? (
-                  <div>
-                    <div className="font-semibold text-lg">{toDateFormatted.full}</div>
-                    <div className="text-xs text-gray-500">{toDateFormatted.dayName}</div>
-                  </div>
-                ) : (
-                  <div className="text-sm">Select date</div>
-                )}
-              </div>
-            </div>
-          </Button>
-
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex items-center gap-2 px-3 py-1 rounded-full text-xs h-8 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700"
+        >
+          <Calendar className="h-4 w-4 text-blue-500" />
+          <span className="text-gray-600 dark:text-gray-300 text-sm font-normal">
+            {compactLabel}
+          </span>
           {(fromDate || toDate) && (
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={(e) => {
-                e.stopPropagation()
-                onClear()
+            <X
+              className="h-3 w-3 ml-1 text-gray-400 hover:text-red-500 cursor-pointer"
+              onClick={e => {
+                e.stopPropagation();
+                onClear();
               }}
-              className="rounded-xl"
-            >
-              <X className="h-4 w-4" />
-            </Button>
+            />
           )}
-        </div>
+        </Button>
       </PopoverTrigger>
 
-      <PopoverContent className="w-auto p-0" align="start">
+      <PopoverContent className="w-auto p-0 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700" align="start">
         <div className="p-4">
           <div className="flex items-center justify-between mb-4">
-            <div className="text-sm font-medium">
+            <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
               {selectingType === "from" ? "Select From Date" : "Select To Date"}
             </div>
             <Button variant="ghost" size="icon" onClick={() => setIsOpen(false)} className="h-6 w-6">
-              <X className="h-4 w-4" />
+              <X className="h-4 w-4 text-gray-500 dark:text-gray-300" />
             </Button>
           </div>
 
@@ -201,9 +319,9 @@ export function DateRangePicker({ fromDate, toDate, onFromDateChange, onToDateCh
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Button variant="ghost" size="icon" onClick={() => navigateMonth("prev")} className="h-6 w-6">
-                  <ChevronLeft className="h-4 w-4" />
+                  <ChevronLeft className="h-4 w-4 text-gray-700 dark:text-gray-200" />
                 </Button>
-                <div className="font-semibold text-sm">
+                <div className="font-semibold text-sm text-gray-900 dark:text-gray-100">
                   {currentMonth.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
                 </div>
                 <div className="w-6" />
@@ -211,7 +329,7 @@ export function DateRangePicker({ fromDate, toDate, onFromDateChange, onToDateCh
 
               <div className="grid grid-cols-7 gap-1 text-center">
                 {weekDays.map((day) => (
-                  <div key={day} className="text-xs font-medium text-gray-500 p-2">
+                  <div key={day} className="text-xs font-medium text-gray-500 dark:text-gray-400 p-2">
                     {day}
                   </div>
                 ))}
@@ -225,7 +343,7 @@ export function DateRangePicker({ fromDate, toDate, onFromDateChange, onToDateCh
                         className={cn(
                           "h-8 w-8 p-0 font-normal rounded-full",
                           isDateSelected(date) && "bg-blue-500 text-white hover:bg-blue-600",
-                          isDateInRange(date) && "bg-blue-100 text-blue-900",
+                          isDateInRange(date) && "bg-blue-100 text-blue-900 dark:bg-blue-900 dark:text-blue-100",
                           date.toDateString() === new Date().toDateString() && "border border-blue-500",
                         )}
                       >
@@ -243,17 +361,17 @@ export function DateRangePicker({ fromDate, toDate, onFromDateChange, onToDateCh
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <div className="w-6" />
-                <div className="font-semibold text-sm">
+                <div className="font-semibold text-sm text-gray-900 dark:text-gray-100">
                   {nextMonth.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
                 </div>
                 <Button variant="ghost" size="icon" onClick={() => navigateMonth("next")} className="h-6 w-6">
-                  <ChevronRight className="h-4 w-4" />
+                  <ChevronRight className="h-4 w-4 text-gray-700 dark:text-gray-200" />
                 </Button>
               </div>
 
               <div className="grid grid-cols-7 gap-1 text-center">
                 {weekDays.map((day) => (
-                  <div key={day} className="text-xs font-medium text-gray-500 p-2">
+                  <div key={day} className="text-xs font-medium text-gray-500 dark:text-gray-400 p-2">
                     {day}
                   </div>
                 ))}
@@ -267,7 +385,7 @@ export function DateRangePicker({ fromDate, toDate, onFromDateChange, onToDateCh
                         className={cn(
                           "h-8 w-8 p-0 font-normal rounded-full",
                           isDateSelected(date) && "bg-blue-500 text-white hover:bg-blue-600",
-                          isDateInRange(date) && "bg-blue-100 text-blue-900",
+                          isDateInRange(date) && "bg-blue-100 text-blue-900 dark:bg-blue-900 dark:text-blue-100",
                           date.toDateString() === new Date().toDateString() && "border border-blue-500",
                         )}
                       >
@@ -282,11 +400,11 @@ export function DateRangePicker({ fromDate, toDate, onFromDateChange, onToDateCh
             </div>
           </div>
 
-          <div className="flex justify-between items-center mt-4 pt-4 border-t">
-            <Button variant="outline" size="sm" onClick={onClear} className="text-xs">
+          <div className="flex justify-between items-center mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+            <Button variant="outline" size="sm" onClick={onClear} className="text-xs text-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700">
               Clear Dates
             </Button>
-            <div className="text-xs text-gray-500">
+            <div className="text-xs text-gray-500 dark:text-gray-400">
               {selectingType === "from" ? "Select from date first" : "Select to date"}
             </div>
           </div>

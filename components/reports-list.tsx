@@ -53,6 +53,7 @@ import {
   PhoneOutgoing,
   Delete,
   FileX,
+  Calendar
 } from "lucide-react";
 import { jsPDF } from "jspdf";
 import "jspdf-autotable";
@@ -62,6 +63,8 @@ import { useRouter } from "next/navigation";
 import { DateTime } from "luxon";
 import { DateRangePicker } from "./date-range-picker";
 import { BASE_URL } from "@/lib/constants";
+import { set } from "date-fns";
+import { ca } from "date-fns/locale";
 import { jwtDecode } from "jwt-decode";
 
 function convertUTCToLocalLuxon(utcTimeString: string) {
@@ -71,16 +74,19 @@ function convertUTCToLocalLuxon(utcTimeString: string) {
     .setZone(userTimeZone)
     .toFormat("yyyy-LL-dd HH:mm:ss");
 }
-
 const ColumnHeader = ({
   column,
   icon,
   label,
   showSearch = true,
-  columnFilters,
   columnSorts,
-  handleColumnFilterChange,
   handleColumnSort,
+  inputValues,
+  handleInputChange,
+  handleCommitFilter,
+  setInputValues,
+  columnFilters,
+  isLemonpeak
 }: any) => (
   <div className="space-y-2">
     <div className="flex items-center justify-between">
@@ -88,39 +94,121 @@ const ColumnHeader = ({
         {icon}
         <span>{label}</span>
       </div>
-      <Button
-        variant="ghost"
-        size="icon"
-        className="h-4 w-4 p-0 hover:bg-gray-200 dark:hover:bg-gray-700"
-        onClick={() => handleColumnSort(column)}
-      >
-        {columnSorts[column] === "asc" ? (
-          <ArrowUp className="h-3 w-3" />
-        ) : columnSorts[column] === "desc" ? (
-          <ArrowDown className="h-3 w-3" />
-        ) : (
-          <ArrowUpDown className="h-3 w-3" />
-        )}
-      </Button>
     </div>
     {showSearch &&
       (label.toLowerCase().includes("date") ? (
         <Input
           type="date"
-          value={columnFilters[column] || ""}
-          onChange={(e) => handleColumnFilterChange(column, e.target.value)}
+          value={columnFilters[column]}
+          onChange={(e) => {
+            handleInputChange(column)
+            handleCommitFilter(column, e.currentTarget.value)
+            setInputValues(prev => ({
+              ...prev,
+              call_date: columnFilters.call_date || "",
+            }));
+          }}
+          className="h-7 text-xs bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600"
+        />
+      ) : isLemonpeak ? (
+        // <Input
+        //   type="text"
+        //   placeholder={`Filter ${label.toLowerCase()}...`}
+        //   value={inputValues[column] || ""}
+        //   onChange={handleInputChange(column)}
+        //   onKeyDown={e => {
+        //     if (e.key === "Enter") {
+        //       handleCommitFilter(column, e.currentTarget.value); // Only triggers API on Enter
+        //     }
+        //   }}
+        //   className="h-7 text-xs bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600"
+        // />
+        <input
+          type="text"
+          value={inputValues[column]}
+          onChange={handleInputChange(column)}
+          onKeyDown={e => {
+            if (e.key === "Enter") {
+              handleCommitFilter(column, e.currentTarget.value); // Only triggers API on Enter
+            }
+          }}
           className="h-7 text-xs bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600"
         />
       ) : (
         <Input
-          placeholder={`Click Enter To Search`}
-          value={columnFilters[column] || ""}
-          onChange={(e) => handleColumnFilterChange(column, e.target.value)}
-          className="h-7 text-xs bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 placeholder:text-xs"
+          type="text"
+          placeholder={`Filter ${label.toLowerCase()}...`}
+          value={inputValues[column] || ""}
+          onChange={handleInputChange(column)}
+          onKeyDown={e => {
+            if (e.key === "Enter") {
+              handleCommitFilter(column, e.currentTarget.value); // Only triggers API on Enter
+            }
+          }}
+          className="h-7 text-xs bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600"
         />
       ))}
   </div>
 );
+
+
+
+export async function fetchDateFilter({ call_date_from, call_date_to, limit = 20, offset = 0 }) {
+  // Helper to get token from cookies
+  function getTokenFromCookies() {
+    const match = document.cookie.match(new RegExp('(^| )token=([^;]+)'));
+    return match ? match[2] : null;
+  }
+
+  const token = getTokenFromCookies();
+
+  const response = await fetch(`${BASE_URL}/logs/datefilter`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: token ? `Bearer ${token}` : "",
+    },
+    body: JSON.stringify({
+      datefilter: {
+        call_date_from,
+        call_date_to,
+      },
+      limit,
+      offset,
+    }),
+  });
+  return response.json();
+}
+
+export async function fetchReportSearching({
+  filters = {},
+  sort = { column: "created_at", direction: "desc" },
+  limit = 20,
+  offset = 0,
+}) {
+  // Helper to get token from cookies
+  function getTokenFromCookies() {
+    const match = document.cookie.match(new RegExp('(^| )token=([^;]+)'));
+    return match ? match[2] : null;
+  }
+
+  const token = getTokenFromCookies();
+
+  const response = await fetch(`${BASE_URL}/logs/searching`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: token ? `Bearer ${token}` : "",
+    },
+    body: JSON.stringify({
+      filters,
+      sort,
+      limit,
+      offset,
+    }),
+  });
+  return response.json();
+}
 
 export function ReportsList() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -133,6 +221,7 @@ export function ReportsList() {
     key: "call_date",
     direction: "desc",
   });
+  const [showDateRange, setShowDateRange] = useState(false);
   const [isFilterVisible, setIsFilterVisible] = useState(false);
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
@@ -143,26 +232,33 @@ export function ReportsList() {
   const [total, setTotal] = useState(0);
   const [reports, setReports] = useState<any[]>([]);
 
-  // Individual column filters
+  // // Individual column filters for new pagination
   const [columnFilters, setColumnFilters] = useState({
     call_date: "",
-    caller_name: "",
-    request_type: "",
-    toll_free_did: "",
-    customer_number: "",
     call_type: "",
-    // caller_sentiment: "",
-  });
+    caller_name: "",
+    filename: "",
+    customer_number: "",
+    toll_free_did: "",
 
+  });
   // Individual column sort states
   const [columnSorts, setColumnSorts] = useState({
-    call_date: "desc",
-    caller_name: null,
-    request_type: null,
-    toll_free_did: null,
-    customer_number: null,
+    call_date: "",
     call_type: "",
-    // caller_sentiment: null,
+    caller_name: "",
+    filename: "",
+    customer_number: "",
+    toll_free_did: "",
+  });
+
+  const [inputValues, setInputValues] = useState({
+    call_date: "",
+    call_type: "",
+    caller_name: "",
+    filename: "",
+    customer_number: "",
+    toll_free_did: "",
   });
 
   const router = useRouter();
@@ -175,93 +271,14 @@ export function ReportsList() {
     ></div>
   );
 
-  // const fetchReports = async () => {
-  //   setLoading(true)
-  //   try {
-  //     const res = await fetch("http://127.0.0.1:8000/logs/all", {
-  //       method: "GET",
-  //       headers: {
-  //         "Content-Type": "application/json",
-  //       },
-  //     })
-  //     const data = await res.json()
-  //     console.log("✅ Data received:", data)
-  //     setReports(data.data || [])
-  //   } catch (err) {
-  //     console.error("❌ Failed to fetch reports:", err)
-  //     setError("Failed to load reports.")
-  //   } finally {
-  //     setLoading(false)
-  //   }
-  // }
-
-  // Helper to get token from cookies
-  function getTokenFromCookies() {
-    const match = document.cookie.match(new RegExp('(^| )token=([^;]+)'));
-    return match ? match[2] : null;
-  }
-
-  // Get organisation_id from token
-  let organisationId = "";
-  const token = getTokenFromCookies();
-  if (token) {
-    try {
-      const decoded: any = jwtDecode(token);
-      organisationId = decoded.organisation_id;
-    } catch (e) {
-      organisationId = "";
-    }
-  }
-
-  // Create a variable for lemonpeak check
-  const isLemonpeak = organisationId === "b222d2bf-162d-4307-9187-9c84b5920f3d";
-
-  // added pagination so that we can load reports in chunks
-  const fetchReports = async (page = 1) => {
-    setLoading(true);
-    try {
-      const offset = (page - 1) * reportsPerPage;
-      const token = getTokenFromCookies();
-
-      const res = await fetch(
-        `${BASE_URL}/logs/all?limit=${reportsPerPage}&offset=${offset}`,
-        {
-          headers: {
-            Authorization: token ? `Bearer ${token}` : "",
-          },
-        }
-      );
-      const data = await res.json();
-      setReports(data.data || []);
-    } catch (err) {
-      setError("Failed to load reports.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // useEffect(() => {
-  //   fetchReports()
-  // }, [])
-  useEffect(() => {
-    setLoading(true);
-    const token = getTokenFromCookies();
-
-    fetch(`${BASE_URL}/logs/all?limit=${limit}&offset=${offset}`, {
-      headers: {
-        Authorization: token ? `Bearer ${token}` : "",
-      },
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        setReports(data.data);
-        setLimit(data.limit);
-        setOffset(data.offset);
-        setTotal(data.total);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
-  }, [limit, offset]);
+  // Format for compact display
+  const compactLabel = fromDate && toDate
+    ? `${fromDate} – ${toDate}`
+    : fromDate
+      ? `${fromDate} –`
+      : toDate
+        ? `– ${toDate}`
+        : "";
 
   // Update the isDateInRange function:
   const isDateInRange = (callDate: string) => {
@@ -303,7 +320,6 @@ export function ReportsList() {
     setCurrentPage(1);
   };
 
-  // Handle column sort
   const handleColumnSort = (column: string) => {
     const currentSort = columnSorts[column];
     let newSort = "asc";
@@ -311,7 +327,7 @@ export function ReportsList() {
     if (currentSort === "asc") {
       newSort = "desc";
     } else if (currentSort === "desc") {
-      newSort = "";
+      newSort = ""; // No sort
     }
 
     // Reset all other column sorts
@@ -330,21 +346,49 @@ export function ReportsList() {
     }
   };
 
-  // Clear all filters
+  // Helper to get token from cookies
+  const [token, setToken] = useState<string | null>(null);
+
+  useEffect(() => {
+    function getTokenFromCookies() {
+      const match = document.cookie.match(new RegExp('(^| )token=([^;]+)'));
+      return match ? match[2] : null;
+    }
+    setToken(getTokenFromCookies());
+  }, []);
+
+  // Get organisation_id from token
+  let organisationId = "";
+  if (token) {
+    try {
+      const decoded: any = jwtDecode(token);
+      organisationId = decoded.organisation_id;
+    } catch (e) {
+      organisationId = "";
+    }
+  }
+
+  // Create a variable for lemonpeak check
+  const isLemonpeak = organisationId === "b222d2bf-162d-4307-9187-9c84b5920f3d";
+
+  const clearDaterangeFilters = () => {
+    setFromDate("");
+    setToDate("");
+  };
+
+
   const clearAllFilters = () => {
     setColumnFilters({
       call_date: "",
-      caller_name: "",
-      request_type: "",
-      toll_free_did: "",
-      customer_number: "",
       call_type: "",
-      // caller_sentiment: "",
+      caller_name: "",
+      filename: "",
+      customer_number: "",
+      toll_free_did: "",
     });
-    setSearchQuery("");
-    setFromDate("");
+    setFromDate("");      // <-- Reset date range!
     setToDate("");
-    setCurrentPage(1);
+    setOffset(0); // (if you want to reset pagination)
   };
 
   // Parse markdown using MDX serializer
@@ -367,7 +411,7 @@ export function ReportsList() {
 
       return { title, mdxSource };
     } catch (error) {
-      console.error("Error parsing markdown with MDX:", error);
+
       return { title, mdxSource: null };
     }
   };
@@ -398,7 +442,7 @@ export function ReportsList() {
       const result = await response.json();
       console.log("Delete successful:", result);
 
-      await fetchReports();
+      // await fetchReports();
     } catch (error) {
       console.error("Error deleting report:", error);
     } finally {
@@ -531,6 +575,24 @@ export function ReportsList() {
     )}.pdf`;
     doc.save(fileName);
   };
+  // 3. Handle input change (instant typing)
+  const handleInputChange = (column: string) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    setInputValues((prev) => ({ ...prev, [column]: e.target.value }));
+  };
+
+  // 4. Commit filter on blur or Enter
+  const handleCommitFilter = (column: string, value: string) => {
+    setColumnFilters((prev) => ({ ...prev, [column]: value }));
+    // API will be triggered by useEffect watching columnFilters
+  };
+
+  // 5. Example: useEffect to trigger API/search when filters change
+  useEffect(() => {
+    // Here you would call your API with the latest filters
+    // Example:
+    // fetchReports(columnFilters);
+
+  }, [columnFilters]);
 
   // Apply sorting
   const sortedReports = useMemo(() => {
@@ -544,13 +606,16 @@ export function ReportsList() {
       return 0;
     });
   }, [reports, sortConfig]);
-
+  // Format date from YYYY-MM-DD to DD/MM/YYYY 
+  function formatDateDMY(dateStr: string) {
+    if (!dateStr) return "";
+    const [year, month, day] = dateStr.split("-");
+    return `${day}/${month}/${year}`;
+  }
   // Apply filters
   const filteredReports = useMemo(() => {
     return sortedReports.filter((report: any) => {
       // Global search filter
-      // const matchesGlobalSearch =
-      //   report.caller_name?.toLowerCase().includes(searchQuery.toLowerCase())
       const matchesGlobalSearch =
         !searchQuery ||
         (report.caller_name &&
@@ -578,15 +643,6 @@ export function ReportsList() {
           report.call_type
             .toLowerCase()
             .includes(columnFilters.call_type.toLowerCase()));
-      // const matchesRequestType =
-      //   !columnFilters.request_type ||
-      //   report.request_type?.toLowerCase().includes(columnFilters.request_type.toLowerCase())
-
-      // const matchesTollFreeDid =
-      //   !columnFilters.toll_free_did
-
-      // const matchesCustomerNumber =
-      //   !columnFilters.customer_number
 
       const matchesTollFreeDid =
         !columnFilters.toll_free_did ||
@@ -620,30 +676,6 @@ export function ReportsList() {
     });
   }, [sortedReports, searchQuery, columnFilters, fromDate, toDate]);
 
-  // Function to determine sentiment color
-  // const getSentimentColor = (sentiment: any) => {
-  //   if (!sentiment) return "gray"
-
-  //   const lowerSentiment = sentiment.toLowerCase()
-  //   if (lowerSentiment.includes("happy") || lowerSentiment.includes("positive")) {
-  //     return "green"
-  //   } else if (lowerSentiment.includes("neutral")) {
-  //     return "blue"
-  //   } else if (
-  //     lowerSentiment.includes("angry") ||
-  //     lowerSentiment.includes("negative") ||
-  //     lowerSentiment.includes("sad")
-  //   ) {
-  //     return "red"
-  //   } else {
-  //     return "gray"
-  //   }
-  // }
-
-  // Get current reports for pagination
-  // const indexOfLastReport = currentPage * reportsPerPage
-  // const indexOfFirstReport = indexOfLastReport - reportsPerPage
-  // const currentReports = filteredReports.slice(indexOfFirstReport, indexOfLastReport)
 
   const currentReports = filteredReports; // filteredReports is just the current page now
   // Calculate the correct indices for the current page
@@ -653,6 +685,95 @@ export function ReportsList() {
 
   // Change page
   const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
+
+  const filters = Object.fromEntries(
+    Object.entries(columnFilters).filter(([_, v]) => v)
+  );
+
+  const sortColumn = Object.keys(columnSorts).find((col) => columnSorts[col]);
+  const sort = sortColumn
+    ? { column: sortColumn, direction: columnSorts[sortColumn] }
+    : { column: "created_at", direction: "desc" };
+
+  useEffect(() => {
+    // Only run date range API if BOTH dates are set
+    if ((fromDate && !toDate) || (!fromDate && toDate)) {
+      // If only one date is set, do nothing
+      return;
+    }
+
+    const hasAnyFilter = Object.values(columnFilters).some((v) => v);
+    const hasDateRange = fromDate && toDate;
+
+    setLoading(true);
+
+    if (hasDateRange) {
+      // Always use the date range API when date range is set
+      fetchDateFilter({
+        call_date_from: fromDate,
+        call_date_to: toDate,
+        limit,
+        offset,
+      })
+        .then((data) => {
+          setReports(data.records || data.data || []);
+          setTotal(data.total || 0);
+          setError("");
+        })
+        .catch(() => {
+          setReports([]);
+          setTotal(0);
+          setError("Failed to load reports.");
+        })
+        .finally(() => setLoading(false));
+      return;
+    } else if (hasAnyFilter) {
+      // Use searching API for other filters and sorting
+      fetchReportSearching({
+        filters,
+        sort,
+        limit,
+        offset,
+      })
+        .then((data) => {
+          setReports(data.data || []);
+          setTotal(data.total || 0);
+          setError("");
+        })
+        .catch(() => {
+          setReports([]);
+          setTotal(0);
+          setError("Failed to load reports.");
+        })
+        .finally(() => setLoading(false));
+    } else {
+      // Helper to get token from cookies
+      function getTokenFromCookies() {
+        const match = document.cookie.match(new RegExp('(^| )token=([^;]+)'));
+        return match ? match[2] : null;
+      }
+
+      const token = getTokenFromCookies();
+
+      fetch(`${BASE_URL}/logs/all?limit=${limit}&offset=${offset}`, {
+        headers: {
+          Authorization: token ? `Bearer ${token}` : "",
+        },
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          setReports(data.data || []);
+          setTotal(data.total || 0);
+          setError("");
+        })
+        .catch(() => {
+          setReports([]);
+          setTotal(0);
+          setError("Failed to load reports.");
+        })
+        .finally(() => setLoading(false));
+    }
+  }, [columnFilters, columnSorts, fromDate, toDate, limit, offset]);
 
   return (
     <div className="relative overflow-hidden">
@@ -680,46 +801,57 @@ export function ReportsList() {
                   A list of all your generated reports
                 </CardDescription>
               </motion.div>
-
               <div className="flex flex-col md:flex-row gap-2 w-full md:w-auto">
-                <motion.div
-                  className="relative w-full md:w-64"
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.6, delay: 0.2 }}
-                >
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input
-                    placeholder="Global search..."
-                    className="pl-10 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 rounded-full focus:ring focus:ring-blue-200 dark:focus:ring-blue-900 transition-all duration-200"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                  />
-                </motion.div>
-
-                <motion.div
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.6, delay: 0.3 }}
-                >
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="rounded-full bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200"
-                    onClick={() => setIsFilterVisible(!isFilterVisible)}
-                  >
-                    <Filter className="h-4 w-4" />
-                  </Button>
-                </motion.div>
+                <AnimatePresence mode="wait">
+                  {!showDateRange && (
+                    <motion.button
+                      key="date-range-label"
+                      type="button"
+                      className="flex items-center gap-2 px-4 py-2 rounded-full border bg-white dark:bg-[#111827] text-black dark:text-white font-semibold"
+                      initial={{ opacity: 0, scale: 0.8, x: 20 }}
+                      animate={{ opacity: 1, scale: 1, x: 0 }}
+                      exit={{ opacity: 0, scale: 0.8, x: -20 }}
+                      transition={{ duration: 0.25 }}
+                      onClick={() => setShowDateRange(true)}
+                    >
+                      <Calendar className="h-5 w-5 text-blue-500" />
+                      <span className="text-gray-600 dark:text-gray-300 text-sm font-normal">
+                        {fromDate && toDate
+                          ? `${formatDateDMY(fromDate)} - ${formatDateDMY(toDate)}`
+                          : "Select date range"}
+                      </span>
+                    </motion.button>
+                  )}
+                  {showDateRange && (
+                    <motion.div
+                      key="date-range-picker"
+                      initial={{ opacity: 0, scale: 0.8, x: 20 }}
+                      animate={{ opacity: 1, scale: 1, x: 0 }}
+                      exit={{ opacity: 0, scale: 0.8, x: -20 }}
+                      transition={{ duration: 0.25 }}
+                    >
+                      <DateRangePicker
+                        fromDate={fromDate}
+                        toDate={toDate}
+                        onFromDateChange={setFromDate}
+                        onToDateChange={setToDate}
+                        onClear={() => {
+                          setFromDate("");
+                          setToDate("");
+                        }}
+                      />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
 
                 <Button
                   variant="outline"
                   size="sm"
-                  className="rounded-full text-xs hover:bg-gray-100 dark:hover:bg-gray-800"
+                  className="rounded-full text-sm font-normal text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center"
                   onClick={clearAllFilters}
                 >
-                  <X className="h-3 w-3 mr-1" />
-                  Clear All
+                  <X className="h-4 w-4 mr-2 text-gray-600 dark:text-gray-300" />
+                  <span>Clear All</span>
                 </Button>
               </div>
             </div>
@@ -734,19 +866,25 @@ export function ReportsList() {
                   transition={{ duration: 0.3 }}
                   className="overflow-hidden"
                 >
-                  <div className="pt-4 space-y-4">
-                    <div>
-                      <p className="text-sm font-medium mb-3 text-gray-500">
-                        Date Range Filter
-                      </p>
-                      <DateRangePicker
-                        fromDate={fromDate}
-                        toDate={toDate}
-                        onFromDateChange={setFromDate}
-                        onToDateChange={setToDate}
-                        onClear={clearDateFilters}
-                      />
-                    </div>
+                  <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl p-4 shadow">
+                    <p className="text-sm font-medium mb-3 text-gray-500 dark:text-gray-300">
+                      Date Range Filter
+                    </p>
+                    <DateRangePicker
+                      fromDate={fromDate}
+                      toDate={toDate}
+                      onFromDateChange={setFromDate}
+                      onToDateChange={setToDate}
+                      onClear={clearDateFilters}
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="mt-3 rounded-full text-xs text-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700"
+                      onClick={clearDateFilters}
+                    >
+                      Clear Filter
+                    </Button>
                   </div>
                 </motion.div>
               )}
@@ -764,11 +902,14 @@ export function ReportsList() {
                         <ColumnHeader
                           column="call_date"
                           icon={<Phone className="h-4 w-4" />}
-                          label="Date"
-                          columnFilters={columnFilters}
+                          label="Call Date"
+                          inputValues={inputValues}
+                          handleInputChange={handleInputChange}
+                          handleCommitFilter={handleCommitFilter}
                           columnSorts={columnSorts}
-                          handleColumnFilterChange={handleColumnFilterChange}
                           handleColumnSort={handleColumnSort}
+                          setInputValues={setInputValues}
+                          columnFilters={columnFilters}
                         />
                       </TableHead>
                       {isLemonpeak ? (
@@ -777,7 +918,9 @@ export function ReportsList() {
                             <ColumnHeader
                               column="call_type"
                               icon={<ArrowRightLeft className="h-4 w-4" />}
+                              inputValues={inputValues}
                               label="Call Type"
+                              handleInputChange={handleInputChange}
                               columnFilters={columnFilters}
                               columnSorts={columnSorts}
                               handleColumnFilterChange={handleColumnFilterChange}
@@ -791,6 +934,8 @@ export function ReportsList() {
                               label="Caller Name"
                               columnFilters={columnFilters}
                               columnSorts={columnSorts}
+                              inputValues={inputValues}
+                              handleInputChange={handleInputChange}
                               handleColumnFilterChange={handleColumnFilterChange}
                               handleColumnSort={handleColumnSort}
                             />
@@ -802,6 +947,8 @@ export function ReportsList() {
                               label="Toll Free/DID"
                               columnFilters={columnFilters}
                               columnSorts={columnSorts}
+                              inputValues={inputValues}
+                              handleInputChange={handleInputChange}
                               handleColumnFilterChange={handleColumnFilterChange}
                               handleColumnSort={handleColumnSort}
                             />
@@ -813,6 +960,8 @@ export function ReportsList() {
                               label="Customer Number"
                               columnFilters={columnFilters}
                               columnSorts={columnSorts}
+                              inputValues={inputValues}
+                              handleInputChange={handleInputChange}
                               handleColumnFilterChange={handleColumnFilterChange}
                               handleColumnSort={handleColumnSort}
                             />
@@ -827,8 +976,11 @@ export function ReportsList() {
                               label="File Name"
                               columnFilters={columnFilters}
                               columnSorts={columnSorts}
+                              inputValues={inputValues}
+                              handleInputChange={handleInputChange}
                               handleColumnFilterChange={handleColumnFilterChange}
                               handleColumnSort={handleColumnSort}
+                              handleCommitFilter={handleCommitFilter}
                             />
                           </TableHead>
                         </>
@@ -934,7 +1086,7 @@ export function ReportsList() {
                                 </TableCell>
                                 <TableCell>
                                   {report.caller_name &&
-                                  report.caller_name !== "null" ? (
+                                    report.caller_name !== "null" ? (
                                     <Button
                                       variant="ghost"
                                       className="px-0 font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors duration-200 text-[1.1rem]"

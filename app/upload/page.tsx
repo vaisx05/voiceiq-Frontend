@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
 import { Loader2 } from "lucide-react";
 import { BASE_URL } from "@/lib/constants";
+import { jwtDecode } from "jwt-decode";
 
 export default function UploadPage() {
   const { toast } = useToast();
@@ -51,6 +52,19 @@ export default function UploadPage() {
     return match ? match[2] : null;
   }
 
+  // Get organisation_id and isLemonpeak
+  const token = getTokenFromCookies();
+  let organisationId = "";
+  if (token) {
+    try {
+      const decoded: any = jwtDecode(token);
+      organisationId = decoded.organisation_id || "";
+    } catch {
+      organisationId = "";
+    }
+  }
+  const isLemonpeak = organisationId === "b222d2bf-162d-4307-9187-9c84b5920f3d";
+
   // Actual upload to server function
   const uploadFileToServer = async (file: File) => {
     setIsUploading(true);
@@ -60,7 +74,7 @@ export default function UploadPage() {
     formData.append("file", file);
 
     try {
-      const token = getTokenFromCookies();
+      const endpoint = isLemonpeak ? "/create_log" : "/upload";
 
       const xhr = new XMLHttpRequest();
 
@@ -90,9 +104,8 @@ export default function UploadPage() {
         };
       });
 
-      xhr.open("POST", `${BASE_URL}/create_log`, true);
+      xhr.open("POST", `${BASE_URL}${endpoint}`, true);
 
-      // Set the Authorization header with the token
       if (token) {
         xhr.setRequestHeader("Authorization", `Bearer ${token}`);
       }
