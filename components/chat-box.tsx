@@ -7,6 +7,7 @@ import { SendHorizontal, Loader2, Mic, Square } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown"; // ✅ Markdown support
 import { BASE_URL } from "@/lib/constants";
+import { jwtDecode } from "jwt-decode";
 
 const ChatBox = ({ messages, setMessages }) => {
   const params = useParams();
@@ -186,6 +187,14 @@ const ChatBox = ({ messages, setMessages }) => {
       },
     ]);
 
+    // Helper to get token from cookies
+    function getTokenFromCookies() {
+      const match = document.cookie.match(new RegExp('(^| )token=([^;]+)'));
+      return match ? match[2] : null;
+    }
+
+    const token = getTokenFromCookies();
+
     const payload = { user_prompt: input, uuid };
     setInput("");
     setIsLoading(true);
@@ -193,7 +202,10 @@ const ChatBox = ({ messages, setMessages }) => {
     try {
       const res = await fetch(`${BASE_URL}/chat`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: token ? `Bearer ${token}` : "",
+        },
         body: JSON.stringify(payload),
       });
 
