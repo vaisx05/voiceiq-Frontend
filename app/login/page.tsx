@@ -20,6 +20,7 @@ import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { X } from "lucide-react";
 import { BASE_URL } from "@/lib/constants";
+import { jwtDecode } from "jwt-decode";
 
 const AbstractBackground = () => (
   <div className="fixed inset-0 z-[-1] overflow-hidden">
@@ -160,10 +161,17 @@ export default function DashboardPage() {
         return;
       }
 
-      document.cookie = `token=${data.access_token}; path=/; max-age=86400; Secure; SameSite=Lax`;
+      // Decode the JWT to check the role
+      const decoded: any = jwtDecode(data.access_token);
 
+      document.cookie = `token=${data.access_token}; path=/; max-age=86400; Secure; SameSite=Lax`;
       setIsLoading(false);
-      router.push("/upload");
+
+      if (decoded.role === "super_admin") {
+        router.push("/admin");
+      } else {
+        router.push("/upload");
+      }
     } catch (err) {
       setError("An unexpected error occurred.");
       setIsLoading(false);
