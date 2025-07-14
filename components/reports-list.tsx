@@ -193,13 +193,27 @@ export function ReportsList() {
   //     setLoading(false)
   //   }
   // }
+
+  // Helper to get token from cookies
+  function getTokenFromCookies() {
+    const match = document.cookie.match(new RegExp('(^| )token=([^;]+)'));
+    return match ? match[2] : null;
+  }
+
   // added pagination so that we can load reports in chunks
   const fetchReports = async (page = 1) => {
     setLoading(true);
     try {
       const offset = (page - 1) * reportsPerPage;
+      const token = getTokenFromCookies();
+
       const res = await fetch(
-        `${BASE_URL}/logs/all?limit=${reportsPerPage}&offset=${offset}`
+        `${BASE_URL}/logs/all?limit=${reportsPerPage}&offset=${offset}`,
+        {
+          headers: {
+            Authorization: token ? `Bearer ${token}` : "",
+          },
+        }
       );
       const data = await res.json();
       setReports(data.data || []);
@@ -215,7 +229,13 @@ export function ReportsList() {
   // }, [])
   useEffect(() => {
     setLoading(true);
-    fetch(`${BASE_URL}/logs/all?limit=${limit}&offset=${offset}`)
+    const token = getTokenFromCookies();
+
+    fetch(`${BASE_URL}/logs/all?limit=${limit}&offset=${offset}`, {
+      headers: {
+        Authorization: token ? `Bearer ${token}` : "",
+      },
+    })
       .then((res) => res.json())
       .then((data) => {
         setReports(data.data);
@@ -839,10 +859,10 @@ export function ReportsList() {
                             {(fromDate ||
                               toDate ||
                               Object.values(columnFilters).some((f) => f)) && (
-                              <p className="text-xs text-gray-400 mt-1">
-                                Try adjusting your filters
-                              </p>
-                            )}
+                                <p className="text-xs text-gray-400 mt-1">
+                                  Try adjusting your filters
+                                </p>
+                              )}
                           </div>
                         </TableCell>
                       </TableRow>
@@ -889,7 +909,7 @@ export function ReportsList() {
                             </TableCell> */}
                             <TableCell>
                               {report.caller_name &&
-                              report.caller_name !== "null" ? (
+                                report.caller_name !== "null" ? (
                                 <Button
                                   variant="ghost"
                                   className="px-0 font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors duration-200 text-[1.1rem]"
@@ -973,7 +993,7 @@ export function ReportsList() {
                                       size="icon"
                                       className="h-8 w-8 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200"
                                       title="Delete Report"
-                                      // disabled={isDeleting || report.status === "processing"}
+                                    // disabled={isDeleting || report.status === "processing"}
                                     >
                                       <FileX
                                         color="red"

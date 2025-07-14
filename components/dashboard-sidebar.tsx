@@ -20,6 +20,7 @@ import { Badge } from "@/components/ui/badge"
 import { useEffect, useState } from "react"
 import { Separator } from "@/components/ui/separator"
 import { cn } from "@/lib/utils"
+import { jwtDecode } from "jwt-decode"
 
 export function DashboardSidebar() {
   const pathname = usePathname()
@@ -27,6 +28,7 @@ export function DashboardSidebar() {
   const [login, setLogin] = useState(false)
   const [userName, setUserName] = useState("User")
   const [userEmail, setUserEmail] = useState("john@example.com")
+  const [role, setRole] = useState("")
   const [imageUrl, setImageUrl] = useState("")
   const [collapsed, setCollapsed] = useState(true)
   
@@ -41,27 +43,36 @@ export function DashboardSidebar() {
     { title: "Settings", icon: Settings, href: "/settings", badge: null }
   ]
   
+  // Helper to get token from cookies
+  function getTokenFromCookies() {
+    const match = document.cookie.match(new RegExp('(^| )token=([^;]+)'));
+    return match ? match[2] : null;
+  }
+
   useEffect(() => {
     if (pathname === "/login" || pathname === "/") {
       setLogin(true)
     } else {
       setLogin(false)
     }
-    
-    // You could fetch user info here in a real app
-    // const fetchUserInfo = async () => {
-    //   try {
-    //     const response = await fetch('/api/user');
-    //     const data = await response.json();
-    //     setUserName(data.name);
-    //     setUserEmail(data.email);
-    //     setImageUrl(data.imageUrl);
-    //   } catch (error) {
-    //     console.error('Failed to fetch user info:', error);
-    //   }
-    // };
-    // fetchUserInfo();
-    
+
+    // Get user info from token
+    const token = getTokenFromCookies();
+    if (token) {
+      try {
+        const decoded: any = jwtDecode(token);
+        setUserEmail(decoded.sub || "user@gmail.com");
+        setRole(decoded.role || "");
+        // Optionally set userName if you store it in the token
+        // setUserName(decoded.name || "User");
+      } catch (e) {
+        setUserEmail("user@gmail.com");
+        setRole("");
+      }
+    } else {
+      setUserEmail("user@gmail.com");
+      setRole("");
+    }
   }, [pathname])
   
   if (login) {
