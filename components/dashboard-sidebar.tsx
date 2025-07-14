@@ -91,7 +91,7 @@ export function DashboardSidebar() {
   const mainRoutes = [
     { title: "Reports", icon: FileText, href: "/reports", badge: null },
     { title: "Upload", icon: Upload, href: "/upload", badge: null },
-    ...(role === "superadmin"
+    ...(role === "super_admin"
       ? [{ title: "Admin", icon: Settings2Icon, href: "/admin", badge: null }]
       : []),
   ]
