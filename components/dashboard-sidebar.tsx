@@ -1,7 +1,7 @@
 "use client"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { FileText, Home, Upload, LogOut, Settings, Headphones, BarChart2, ChevronRight } from "lucide-react"
+import { FileText, Home, Upload, LogOut, Settings, Headphones, BarChart2, ChevronRight, Settings2Icon } from "lucide-react"
 import {
   Sidebar,
   SidebarContent,
@@ -32,17 +32,6 @@ export function DashboardSidebar() {
   const [imageUrl, setImageUrl] = useState("")
   const [collapsed, setCollapsed] = useState(true)
   
-  const mainRoutes = [
-    // { title: "Dashboard", icon: Home, href: "/", badge: null },
-    { title: "Reports", icon: FileText, href: "/reports", badge: null },
-    { title: "Upload", icon: Upload, href: "/upload", badge: null }
-  ]
-  
-  const utilityRoutes = [
-    { title: "Analytics", icon: BarChart2, href: "/analytics", badge: null },
-    { title: "Settings", icon: Settings, href: "/settings", badge: null }
-  ]
-  
   // Helper to get token from cookies
   function getTokenFromCookies() {
     const match = document.cookie.match(new RegExp('(^| )token=([^;]+)'));
@@ -61,16 +50,14 @@ export function DashboardSidebar() {
     if (token) {
       try {
         const decoded: any = jwtDecode(token);
-        setUserEmail(decoded.sub || "user@gmail.com");
+        setUserEmail(decoded.sub || "john@example.com");
         setRole(decoded.role || "");
-        // Optionally set userName if you store it in the token
-        // setUserName(decoded.name || "User");
       } catch (e) {
-        setUserEmail("user@gmail.com");
+        setUserEmail("john@example.com");
         setRole("");
       }
     } else {
-      setUserEmail("user@gmail.com");
+      setUserEmail("john@example.com");
       setRole("");
     }
   }, [pathname])
@@ -101,6 +88,14 @@ export function DashboardSidebar() {
     setCollapsed(!collapsed);
   }
 
+  const mainRoutes = [
+    { title: "Reports", icon: FileText, href: "/reports", badge: null },
+    { title: "Upload", icon: Upload, href: "/upload", badge: null },
+    ...(role === "superadmin"
+      ? [{ title: "Admin", icon: Settings2Icon, href: "/admin", badge: null }]
+      : []),
+  ]
+  
   return (
     <Sidebar className={cn(
       "transition-all duration-300 ease-in-out",
