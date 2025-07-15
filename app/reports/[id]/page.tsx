@@ -24,6 +24,12 @@ type Message = {
   isAudio?: boolean;
 };
 
+// Helper to get token from cookies
+function getTokenFromCookies() {
+  const match = document.cookie.match(new RegExp('(^| )token=([^;]+)'));
+  return match ? match[2] : null;
+}
+
 export default function ReportPage() {
   const params = useParams();
   const [transcription, setTranscription] = useState("");
@@ -115,9 +121,14 @@ ${content}
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const res = await fetch(`${BASE_URL}/logs/${params.id}`);
-        console.log("Params id");
-        console.log(params.id);
+        const token = getTokenFromCookies();
+
+        // Fetch report details
+        const res = await fetch(`${BASE_URL}/logs/${params.id}`, {
+          headers: {
+            Authorization: token ? `Bearer ${token}` : "",
+          },
+        });
         if (!res.ok) {
           throw new Error(`Error ${res.status}: ${res.statusText}`);
         }
@@ -143,11 +154,15 @@ ${content}
           call_id: result.call_id || "N/A",
         });
 
-        const qaRes = await fetch(`${BASE_URL}/get_answers/${params.id}`);
-        if (!qaRes.ok){
-          throw new Error ("Failed to fetch QA")
+        // Fetch QA pairs
+        const qaRes = await fetch(`${BASE_URL}/get_answers/${params.id}`, {
+          headers: {
+            Authorization: token ? `Bearer ${token}` : "",
+          },
+        });
+        if (!qaRes.ok) {
+          throw new Error("Failed to fetch QA");
         }
-
         const qaData = await qaRes.json();
         setQaPairs(qaData);
 
