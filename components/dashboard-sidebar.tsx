@@ -1,7 +1,7 @@
 "use client"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { FileText, Home, Upload, LogOut, Settings, Headphones, BarChart2, ChevronRight, Settings2Icon } from "lucide-react"
+import { FileText, Home, Upload, LogOut, Settings, Headphones, BarChart2, ChevronRight, Settings2Icon, Brain } from "lucide-react"
 import {
   Sidebar,
   SidebarContent,
@@ -88,13 +88,18 @@ export function DashboardSidebar() {
     setCollapsed(!collapsed);
   }
 
-  const mainRoutes = [
-    { title: "Reports", icon: FileText, href: "/reports", badge: null },
-    { title: "Upload", icon: Upload, href: "/upload", badge: null },
-    ...(role === "super_admin"
-      ? [{ title: "Admin", icon: Settings2Icon, href: "/admin", badge: null }]
-      : []),
-  ]
+const mainRoutes = [
+  { title: "Reports", icon: FileText, href: "/reports", badge: null },
+  { title: "Upload", icon: Upload, href: "/upload", badge: null },
+  // Show Admin only for super_admin
+  ...(role === "super_admin"
+    ? [{ title: "Admin", icon: Settings2Icon, href: "/admin", badge: null }]
+    : []),
+  // Show Custom Queries only for admin or superuser
+  ...(role === "admin" || role === "superuser"
+    ? [{ title: "Custom Queries", icon: Brain, href: "/custom-queries", badge: null }]
+    : []),
+];
   
   return (
     <Sidebar className={cn(

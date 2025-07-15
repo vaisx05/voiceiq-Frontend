@@ -415,6 +415,35 @@ export function ReportsList() {
       return { title, mdxSource: null };
     }
   };
+
+  // Helper to get token from cookies
+  function getTokenFromCookies() {
+    const match = document.cookie.match(new RegExp('(^| )token=([^;]+)'));
+    return match ? match[2] : null;
+  }
+
+  // Fetch reports from /logs/all
+  const fetchAllReportstodelete = async () => {
+    const token = getTokenFromCookies();
+    setLoading(true);
+    try {
+      const res = await fetch(`${BASE_URL}/logs/all?limit=${limit}&offset=${offset}`, {
+        headers: {
+          Authorization: token ? `Bearer ${token}` : "",
+        },
+      });
+      const data = await res.json();
+      setReports(data.data || []);
+      setTotal(data.total || 0);
+      setError("");
+    } catch {
+      setReports([]);
+      setTotal(0);
+      setError("Failed to load reports.");
+    } finally {
+      setLoading(false);
+    }
+  };
   const deleteReport = async (report: any) => {
     setIsDeleting(true);
 
@@ -442,7 +471,7 @@ export function ReportsList() {
       const result = await response.json();
       console.log("Delete successful:", result);
 
-      // await fetchReports();
+      await fetchAllReportstodelete();
     } catch (error) {
       console.error("Error deleting report:", error);
     } finally {
