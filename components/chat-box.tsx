@@ -117,9 +117,24 @@ const ChatBox = ({ messages, setMessages }) => {
       formData.append("file", audioBlob, "recording.wav");
       formData.append("uuid", uuid);
 
+      // const res = await fetch(`${BASE_URL}/voice_chat`, {
+      //   method: "POST",
+      //   body: formData,
+      // });
+
+      function getTokenFromCookies() {
+      const match = document.cookie.match(new RegExp('(^| )token=([^;]+)'));
+      return match ? match[2] : null;
+    }
+
+
+      const token = getTokenFromCookies();
       const res = await fetch(`${BASE_URL}/voice_chat`, {
         method: "POST",
         body: formData,
+        headers: {
+          Authorization: token ? `Bearer ${token}` : "",
+        }
       });
 
       const data = await res.json();
