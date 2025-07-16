@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent,DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 
 interface ConfirmModalProps {
@@ -10,6 +10,7 @@ interface ConfirmModalProps {
   onConfirm: () => void;
   title: string;
   message: string;
+  highlightedText?: string;
   icon?: React.ReactNode;
 }
 
@@ -19,6 +20,7 @@ export function ConfirmModal({
   onConfirm,
   title,
   message,
+  highlightedText,
   icon,
 }: ConfirmModalProps) {
   return (
@@ -26,11 +28,19 @@ export function ConfirmModal({
       <DialogContent className="p-6 sm:max-w-sm bg-background rounded-xl text-center shadow-lg">
         {icon && <div className="mx-auto mb-3">{icon}</div>}
 
-        <h2 className="text-lg font-semibold mb-1">{title}</h2>
+        <DialogTitle asChild>
+          <h2 className="text-lg font-semibold mb-1">{title}</h2>
+        </DialogTitle>
 
-        <p className="text-sm text-muted-foreground mb-4 whitespace-pre-line">
+        <p className="text-sm text-muted-foreground mb-2 whitespace-pre-line">
           {message}
         </p>
+
+        {highlightedText && (
+          <p className="text-sm font-medium text-gray-900 dark:text-gray-100 bg-gray-100 dark:bg-gray-800 rounded px-3 py-2 mb-4">
+            {highlightedText}
+          </p>
+        )}
 
         <div className="flex justify-center gap-4">
           <Button

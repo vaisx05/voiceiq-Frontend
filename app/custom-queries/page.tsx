@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DashboardShell } from "@/components/dashboard-shell";
 import axios from "axios";
-import { CheckCircle, Trash2 } from "lucide-react";
+import { CheckCircle, Trash2, X } from "lucide-react";
 import { ConfirmModal } from "@/components/confirm-modal";
 import { BASE_URL } from "@/lib/constants";
 import { toast } from "sonner";
@@ -25,32 +25,36 @@ interface Question {
 
 export default function CustomQueries() {
   const [questions, setQuestions] = useState<Question[]>([]);
-  const [pendingUpdateIndex, setPendingUpdateIndex] = useState<number | null>(null);
+  const [pendingIndex, setPendingIndex] = useState<number | null>(null);
+  const [modalType, setModalType] = useState<"update" | "delete" | null>(null);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newQuestionText, setNewQuestionText] = useState("");
+  const [adding, setAdding] = useState(false);
+
 
   // Always get token before making a request
   const getAuthHeader = () => {
     const token = getTokenFromCookies();
     return token ? { Authorization: `Bearer ${token}` } : {};
   };
+  const fetchQuestions = async () => {
+    try {
+      const response = await axios.get<Question[]>(
+        `${BASE_URL}/get_all_questions`,
+        { headers: getAuthHeader() }
+      );
+      const formatted = response.data.map((q: any) => ({
+        id: q.id,
+        question_text: q.question_text,
+        is_active: q.is_active === true,
+      }));
+      setQuestions(formatted);
+    } catch (error) {
+      console.error("Error fetching questions:", error);
+    }
+  };
 
   useEffect(() => {
-    const fetchQuestions = async () => {
-      try {
-        const response = await axios.get<Question[]>(
-          `${BASE_URL}/get_all_questions`,
-          { headers: getAuthHeader() }
-        );
-        const formatted = response.data.map((q: any) => ({
-          id: q.id,
-          question_text: q.question_text,
-          is_active: q.is_active === true,
-        }));
-        setQuestions(formatted);
-      } catch (error) {
-        console.error("Error fetching questions:", error);
-      }
-    };
-
     fetchQuestions();
   }, []);
 
@@ -67,12 +71,18 @@ export default function CustomQueries() {
   };
 
   const handleUpdate = (index: number) => {
-    setPendingUpdateIndex(index);
+    setPendingIndex(index);
+    setModalType("update");
   };
 
-  const handleConfirmUpdate = async (index: number | null) => {
-    if (index === null) return;
-    const q = questions[index];
+  const handleDelete = (index: number) => {
+    setPendingIndex(index);
+    setModalType("delete");
+  };
+
+  const handleConfirmUpdate = async () => {
+    if (pendingIndex === null) return;
+    const q = questions[pendingIndex];
     try {
       await axios.put(
         `${BASE_URL}/update_question/${q.id}?question_text=${encodeURIComponent(
@@ -82,38 +92,65 @@ export default function CustomQueries() {
         { headers: getAuthHeader() }
       );
       toast("Question updated successfully!");
+      await fetchQuestions(); // <-- refetch after update
     } catch (err) {
-      alert("Update failed");
+      toast("Update failed");
       console.error(err);
     }
-    setPendingUpdateIndex(null);
+    setPendingIndex(null);
+    setModalType(null);
   };
 
-  const handleDelete = (index: number) => {
-    setPendingUpdateIndex(index);
-  };
-
-  const handleConfirmDelete = async (index: number | null) => {
-    if (index === null) return;
-    const q = questions[index];
+  const handleConfirmDelete = async () => {
+    if (pendingIndex === null) return;
+    const q = questions[pendingIndex];
     try {
       await axios.delete(`${BASE_URL}/delete_question/${q.id}`, {
         headers: getAuthHeader(),
       });
-      const updated = questions.filter((_, i) => i !== index);
-      setQuestions(updated);
-      alert("Deleted successfully!");
+      toast("Deleted successfully!");
+      await fetchQuestions(); // <-- refetch after delete
     } catch (err) {
-      alert("Delete failed");
+      toast("Delete failed");
       console.error(err);
     }
-    setPendingUpdateIndex(null);
+    setPendingIndex(null);
+    setModalType(null);
+  };
+
+  const handleAddQuestion = async () => {
+    if (!newQuestionText.trim()) return;
+    setAdding(true);
+    try {
+      await axios.post(
+        `${BASE_URL}/add_question`,
+        { question_text: newQuestionText },
+        { headers: getAuthHeader() }
+      );
+      toast("Question added successfully!");
+      setNewQuestionText("");
+      setShowAddModal(false);
+      await fetchQuestions();
+    } catch (err) {
+      toast("Add failed");
+      console.error(err);
+    }
+    setAdding(false);
   };
 
   return (
     <DashboardShell>
       <div className="px-4 sm:px-6 py-6 max-w-5xl">
-        <h2 className="text-xl sm:text-2xl font-semibold mb-2">Custom Queries</h2>
+        <div className="flex justify-between items-center mb-2">
+          <h2 className="text-xl sm:text-2xl font-semibold">Custom Queries</h2>
+          <Button
+            variant="default"
+            className="bg-blue-600 hover:bg-blue-700 text-white"
+            onClick={() => setShowAddModal(true)}
+          >
+            Add Question
+          </Button>
+        </div>
         <p className="text-sm text-muted-foreground mb-6">
           Manage predefined questions used by the AI. Toggle to include/exclude them and edit as needed.
         </p>
@@ -145,25 +182,83 @@ export default function CustomQueries() {
         </div>
       </div>
 
-      {/* Update Confirm Modal */}
-      <ConfirmModal
-        isOpen={pendingUpdateIndex !== null}
-        onClose={() => setPendingUpdateIndex(null)}
-        onConfirm={() => handleConfirmUpdate(pendingUpdateIndex)}
-        title="Confirm Update"
-        message={`Are you sure you want to update this question?\n"${questions[pendingUpdateIndex!]?.question_text}" – ${questions[pendingUpdateIndex!]?.is_active ? "Active" : "Inactive"}`}
-        icon={<CheckCircle className="text-green-500 w-6 h-6" />}
+      {/* Add Question Modal Overlay */}
+      {showAddModal && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 dark:bg-opacity-60">
+    <div className="bg-white dark:bg-gray-900 rounded-xl shadow-lg p-6 w-full max-w-md relative border border-gray-200 dark:border-gray-700">
+      <button
+        className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
+        onClick={() => {
+          setShowAddModal(false);
+          setNewQuestionText("");
+        }}
+        disabled={adding}
+        aria-label="Close"
+      >
+        <X className="w-5 h-5" />
+      </button>
+      <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">
+        Add New Question
+      </h3>
+      <Input
+        value={newQuestionText}
+        onChange={(e) => setNewQuestionText(e.target.value)}
+        placeholder="Type your new question"
+        className="mb-4"
+        disabled={adding}
       />
+      <div className="flex gap-2 justify-end">
+        <Button
+          className="bg-blue-600 hover:bg-blue-700 text-white"
+          onClick={handleAddQuestion}
+          disabled={adding || !newQuestionText.trim()}
+        >
+          {adding ? "Adding..." : "Add"}
+        </Button>
+        <Button
+          variant="ghost"
+          onClick={() => {
+            setShowAddModal(false);
+            setNewQuestionText("");
+          }}
+          disabled={adding}
+        >
+          Cancel
+        </Button>
+      </div>
+    </div>
+  </div>
+)}
 
-      {/* Delete Confirm Modal */}
-      <ConfirmModal
-        isOpen={pendingUpdateIndex !== null}
-        onClose={() => setPendingUpdateIndex(null)}
-        onConfirm={() => handleConfirmDelete(pendingUpdateIndex)}
-        title="Confirm Delete"
-        message={`Are you sure you want to delete this question?\n"${questions[pendingUpdateIndex!]?.question_text}"`}
-        icon={<Trash2 className="text-red-500 w-6 h-6" />}
-      />
+
+<ConfirmModal
+  isOpen={modalType === "update" && pendingIndex !== null}
+  onClose={() => {
+    setPendingIndex(null);
+    setModalType(null);
+  }}
+  onConfirm={handleConfirmUpdate}
+  title="Confirm Update"
+  message={`Are you sure you want to update this question?`}
+  highlightedText={`"${questions[pendingIndex!]?.question_text}"`} 
+  icon={<CheckCircle className="text-green-500 w-6 h-6" />}
+/>
+
+
+
+    <ConfirmModal
+  isOpen={modalType === "delete" && pendingIndex !== null}
+  onClose={() => {
+    setPendingIndex(null);
+    setModalType(null);
+  }}
+  onConfirm={handleConfirmDelete}
+  title="Confirm Delete"
+  message="Are you sure you want to delete this question?"
+  highlightedText={`"${questions[pendingIndex!]?.question_text}"`}
+  icon={<Trash2 className="text-red-500 w-6 h-6" />}
+/>
+
     </DashboardShell>
   );
 }
