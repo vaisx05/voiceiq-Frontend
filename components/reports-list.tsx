@@ -451,7 +451,7 @@ export function ReportsList() {
       const response = await fetch(
         `${BASE_URL}/delete_log?id=${encodeURIComponent(report.id)}`,
         {
-          method: "POST",
+          method: "DELETE",
           headers: {
             "Content-Type": "application/json",
           },
