@@ -10,7 +10,7 @@ interface ConfirmModalProps {
   onConfirm: () => void;
   title: string;
   message: string;
-  highlightedText?: string;
+  highlightedText?: React.ReactNode;
   icon?: React.ReactNode;
 }
 
@@ -37,10 +37,10 @@ export function ConfirmModal({
         </p>
 
         {highlightedText && (
-          <p className="text-sm font-medium text-gray-900 dark:text-gray-100 bg-gray-100 dark:bg-gray-800 rounded px-3 py-2 mb-4">
-            {highlightedText}
-          </p>
-        )}
+        <div className="mb-4">
+        {highlightedText}
+        </div>
+         )}
 
         <div className="flex justify-center gap-4">
           <Button

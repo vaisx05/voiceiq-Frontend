@@ -293,7 +293,7 @@ ${content}
 
           <TabsContent value="transcription" className="focus:outline-none">
             <div
-              className="space-y-4 sm:space-y-6 pb-6 sm:pb-10"
+              className="space-y-0 sm:space-y-3 pb-6 sm:pb-10"
               ref={transcriptionRef}
             >
               {formattedTranscription.map((segment) => (
@@ -319,12 +319,12 @@ ${content}
                       "max-w-[85%] sm:max-w-[80%] py-2 sm:py-3 px-3 sm:px-4 rounded-2xl text-sm",
                       segment.speaker === "Agent"
                         ? "bg-muted/50 text-foreground"
-                        : "bg-muted text-foreground"
+                        : "bg-blue-100 text-foreground"
                     )}
                   >
-                    <p className="font-medium text-xs mb-1 text-muted-foreground">
+                    {/* <p className="font-medium text-xs mb-1 text-muted-foreground">
                       {segment.speaker}
-                    </p>
+                    </p> */}
                     <p className="text-sm leading-relaxed">{segment.text}</p>
                   </div>
                 </div>
